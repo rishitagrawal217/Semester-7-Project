@@ -17,6 +17,7 @@ Run:
 Then point your browser's HTTP *and* HTTPS proxy settings at
 127.0.0.1:8081 (see README for exact steps per OS).
 """
+import html
 import socket
 import threading
 from urllib.parse import urlsplit
@@ -32,11 +33,150 @@ BYPASS_HOSTS = ("localhost", "127.0.0.1")
 
 WARNING_PAGE = """<!doctype html>
 <html>
-<head><title>Blocked - Phishing URL Detected</title></head>
-<body style="font-family: sans-serif; text-align: center; margin-top: 15vh; color: #1f2937;">
-  <h1 style="color:#dc2626;">Blocked: Phishing URL Detected</h1>
-  <p>The URL <code>{url}</code> was flagged as phishing by the Phishing Detector.</p>
-  <p style="color:#6b7280;">Browsing was stopped to protect you. Close this tab or go back.</p>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blocked — Phishing URL Detected</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --danger-bg: #fff1f2;
+    --danger-border: #fecdd3;
+    --danger-text: #be123c;
+    --danger-icon-bg: #f43f5e;
+    --code-bg: #f1f5f9;
+    --button-bg: #2563eb;
+    --button-bg-hover: #1d4ed8;
+    --button-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --danger-bg: rgba(244, 63, 94, 0.12);
+      --danger-border: #9f1239;
+      --danger-text: #fda4af;
+      --danger-icon-bg: #f43f5e;
+      --code-bg: #0f172a;
+      --button-bg: #3b82f6;
+      --button-bg-hover: #60a5fa;
+      --button-text: #0f172a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 440px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+  .icon-badge {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--danger-icon-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 8px;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0 0 20px;
+  }
+  .url-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger-text);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    word-break: break-all;
+    margin-bottom: 20px;
+  }
+  .explanation {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+  button {
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover {
+    background: var(--button-bg-hover);
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/>
+      </svg>
+      Phishing Detector
+    </div>
+    <div class="icon-badge">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 9v4"/>
+        <path d="M12 17h.01"/>
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>
+      </svg>
+    </div>
+    <h1>This site was blocked</h1>
+    <p class="subtitle">Identified as a likely phishing site</p>
+    <div class="url-box">__URL__</div>
+    <p class="explanation">
+      Browsing was stopped automatically by the Phishing Detector proxy to protect you.
+      If you believe this is a mistake, you can verify the URL yourself in the dashboard.
+    </p>
+    <button onclick="history.back()">Go Back</button>
+  </div>
 </body>
 </html>"""
 
@@ -103,7 +243,7 @@ def handle_http(client: socket.socket, request_line: str, header_lines: list[str
     target_port = parsed.port or (int(host_header.split(":")[1]) if ":" in host_header else 80)
 
     if target_host not in BYPASS_HOSTS and is_phishing(url):
-        page = WARNING_PAGE.format(url=url)
+        page = WARNING_PAGE.replace("__URL__", html.escape(url))
         response = (
             "HTTP/1.1 403 Forbidden\r\n"
             f"Content-Type: text/html\r\nContent-Length: {len(page)}\r\nConnection: close\r\n\r\n{page}"
