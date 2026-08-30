@@ -18,10 +18,12 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-/** POST /api/predict — classify a single URL. */
-export async function predictUrl(url) {
-  const { data } = await api.post('/api/predict', { url })
-  return data // { url, is_phishing, confidence, message }
+/** POST /api/predict — classify a single URL.
+ * `explain: true` also runs the SHAP explanation (~0.7s extra) — only pass
+ * it from user-initiated checks, never from anything on a hot path. */
+export async function predictUrl(url, { explain = false } = {}) {
+  const { data } = await api.post('/api/predict', { url, explain })
+  return data // { url, is_phishing, confidence, message, explanation: [...] }
 }
 
 /** GET /api/metrics — aggregate dashboard stats. */

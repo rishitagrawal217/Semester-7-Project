@@ -10,4 +10,5 @@ numpy
 matplotlib
 pytz
 httpx
+shap
 pyjwt
