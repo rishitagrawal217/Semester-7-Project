@@ -9,6 +9,5 @@ pandas
 numpy
 matplotlib
 pytz
-mitmproxy
 httpx
 pyjwt

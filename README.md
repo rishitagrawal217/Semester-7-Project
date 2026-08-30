@@ -1,6 +1,6 @@
 # Phishing URL Detection
 
-A FastAPI service that uses a trained Random Forest model to classify URLs as phishing or legitimate, based on lexical features extracted from the URL string (no external calls or page fetching required). Ships with a React + Tailwind frontend (its own container) and an optional mitmproxy addon to block phishing sites live at the network level.
+A FastAPI service that uses a trained Random Forest model to classify URLs as phishing or legitimate, based on lexical features extracted from the URL string (no external calls or page fetching required). Ships with a React + Tailwind frontend (its own container) and an optional hand-rolled forward proxy to block phishing sites live at the network level.
 
 The detection **Logs** are admin-only, protected by a username/password login (JWT) enforced on the API itself — see [Admin auth](#5-admin-auth-username--password) and [frontend/README.md](frontend/README.md).
 
@@ -32,13 +32,13 @@ The detection **Logs** are admin-only, protected by a username/password login (J
 - **`ml_service/utils/feature_extractor.py`** — turns a raw URL string into ~30 lexical features (length, dot count, IP-in-host, `https` token, shortening services, etc.).
 - **`ml_service/database/session.py`** — SQLAlchemy engine/session pointed at a local SQLite file.
 - **`models/`** — pretrained `.joblib` model files.
-- **`proxy/addon.py`** — a mitmproxy script that intercepts browser traffic and blocks any request whose URL the model flags as phishing.
+- **`proxy/server.py`** — a standalone forward proxy (raw sockets, no mitmproxy) that intercepts browser traffic and blocks any request whose URL the model flags as phishing.
 - **`train_model.py` / `train_model_url_only.py`** — scripts to retrain the model from `data/dataset_phishing.csv`.
 
 ## Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose) — this is the only requirement for running the API.
-- *(Optional, for the live proxy only)* Python 3.12 locally, to run `mitmdump`.
+- *(Optional, for the live proxy only)* Python 3.9+ locally, to run `proxy/server.py`.
 
 ## 1. Clone & Start the Service
 
@@ -57,7 +57,7 @@ This builds the images and starts two containers:
 
 > The frontend publishes host port **8080** (host `:3000` is commonly taken). Change it in `docker-compose.yml` if you like — then update `ALLOWED_ORIGINS` to match.
 
-First build takes a few minutes (installing scikit-learn, pandas, mitmproxy, and building the frontend). Subsequent starts are fast.
+First build takes a few minutes (installing scikit-learn, pandas, and building the frontend). Subsequent starts are fast.
 
 Check it's running:
 
@@ -171,16 +171,22 @@ curl http://localhost:8000/api/metrics
 
 ## 6. (Optional) Live Traffic Blocking via Proxy
 
-`proxy/addon.py` is a [mitmproxy](https://mitmproxy.org/) script that checks every browsed URL against the running API and returns a 403 block page if it's flagged phishing. This runs **outside** Docker, directly on your machine, since it needs to sit in front of your browser's traffic:
+`proxy/server.py` is a small, self-contained forward proxy (plain Python sockets — no mitmproxy) that checks every browsed URL against the running API. It runs **outside** Docker, directly on your machine, since it needs to sit in front of your browser's traffic:
 
 ```bash
-pip install mitmproxy httpx
-mitmdump -s proxy/addon.py --mode regular --listen-host 127.0.0.1 --listen-port 8081
+pip install httpx
+python proxy/server.py
 ```
 
-> Uses `8081` because the frontend container already occupies host `8080`.
+> Listens on `127.0.0.1:8081` — `8081` because the frontend container already occupies host `8080`.
 
-Then point your browser's proxy settings to `127.0.0.1:8080` (and trust mitmproxy's CA cert for HTTPS interception — see [mitmproxy's cert docs](https://docs.mitmproxy.org/stable/concepts-certificates/)). Requests to `localhost`/`127.0.0.1` are always allowed through so the API itself doesn't get blocked.
+Then point your browser's HTTP **and** HTTPS proxy settings to `127.0.0.1:8081`. Requests to `localhost`/`127.0.0.1` are always allowed through so the API itself doesn't get blocked.
+
+**HTTP vs. HTTPS blocking differ**, since the proxy doesn't do TLS interception (no CA cert to generate or trust):
+- **Plain HTTP** — the full URL (path + query) is visible, so a flagged URL gets a real 403 response with a custom "Blocked: Phishing URL Detected" warning page.
+- **HTTPS** — only the hostname from the `CONNECT` request is visible without decrypting traffic. A flagged host has its `CONNECT` refused and the connection closed; the browser shows its own generic connection-failed error, not the custom warning page. Safe hosts get a raw, unmodified TCP tunnel.
+
+If the prediction API itself is unreachable, the proxy fails open (lets the request through) rather than blocking all browsing.
 
 ## 7. Retraining the Model (Optional)
 
