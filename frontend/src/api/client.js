@@ -11,7 +11,8 @@ const api = axios.create({
 })
 
 // Attach the admin JWT (if signed in) to every request.
-// Public endpoints ignore it; /api/logs requires it.
+// Public endpoints ignore it; /api/logs, /api/metrics, and their /api/qr/*
+// counterparts all require it.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('phishing_admin_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -46,6 +47,18 @@ export async function getMetrics() {
 export async function getLogs(limit = 100) {
   const { data } = await api.get('/api/logs', { params: { limit } })
   return data // [{ id, url, is_phishing, confidence, message, timestamp }]
+}
+
+/** GET /api/qr/metrics — aggregate QR dashboard stats. */
+export async function getQrMetrics() {
+  const { data } = await api.get('/api/qr/metrics')
+  return data // { total_checks, unreadable_count, readable_rate, phishing_detected, detection_rate }
+}
+
+/** GET /api/qr/logs — recent QR detection history. */
+export async function getQrLogs(limit = 100) {
+  const { data } = await api.get('/api/qr/logs', { params: { limit } })
+  return data // [{ id, filename, decoded_url, qr_readable, is_phishing, confidence, message, timestamp }]
 }
 
 export { baseURL }
