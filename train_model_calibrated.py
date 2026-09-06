@@ -1,9 +1,9 @@
 """Retrain the phishing detector, scoped to plain domain-style URLs.
 
-Two things differ from train_model.py / train_model_url_only.py:
+Two things matter about how this is trained:
 
 1. Feature values are not read from the dataset's precomputed columns - they
-   are recomputed straight from the raw `url` column using
+   are recomputed straight from the raw `URL` column using
    ml_service.utils.feature_extractor.extract_features_v2, the exact same
    function the live API calls at inference time. This guarantees zero
    train/serve skew.
@@ -12,21 +12,32 @@ Two things differ from train_model.py / train_model_url_only.py:
    optional www/subdomain + registrable domain + a recognized extension).
    Path/query content is intentionally not scored. Early iterations that did
    score full-URL/path statistics learned "does this URL have a path" as a
-   proxy for phishing, because this dataset's legitimate URLs skew heavily
-   toward bare homepages - which meant completely ordinary pages like
-   github.com/login or accounts.google.com/ServiceLogin got flagged as
-   phishing. Restricting scope to the hostname avoids that failure mode, at
-   the cost of missing phishing tactics that only show up in a URL's path or
-   query string (a known, accepted limitation - see README).
+   proxy for phishing, which flagged completely ordinary pages like
+   github.com/login as phishing. Restricting scope to the hostname avoids
+   that failure mode, at the cost of missing phishing tactics that only show
+   up in a URL's path or query string (a known, accepted limitation - see
+   README). Separately, our lexical-only feature set has no concept of
+   domain reputation, so a small hardcoded allowlist in feature_extractor.py
+   (trusted_domain_match) catches major platforms' subdomains
+   (mail.google.com, login.microsoftonline.com) before they ever reach this
+   model - see ml_service/services/ml_inference.py.
 
-The dataset also has its own bias worth calling out: ~84% of legitimate
-examples have a "www." subdomain vs ~21% of phishing ones, so a model trained
-on it as-is learns "no www subdomain => phishing", which flags plenty of
-modern sites that skip www by default (github.com, amazon.com, netflix.com...).
-We counter this directly with light data augmentation: every training URL
-that has a "www." prefix gets a bare-domain duplicate added with the same
-label, since they're the same site. This doesn't fabricate labels - it just
-stops the training set from implying that dropping "www." changes legitimacy.
+Dataset: data/phishing_url_dataset.csv (235K rows, a PhiUSIIL-style dataset -
+25x larger than the original ~9K-row set this project started with). Its
+`label` column is 1 = legitimate, 0 = phishing - the OPPOSITE of this
+project's convention - so it's remapped below. It also has its own bias: every
+legitimate example has *some* subdomain (almost always "www."), while a good
+chunk of phishing examples are bare apex domains, so we apply the same
+www-deduplication augmentation as before to avoid the model learning
+"no www => phishing".
+
+n_estimators=100 (not the more obvious 300) is a deliberate choice: benchmarked
+against a 500+500 sample QR-code dataset, 300 unconstrained trees produced a
+1.97GB model with no accuracy gain over 100 trees (627MB) at the same depth -
+constraining depth/leaf-size instead (a more typical way to shrink a forest)
+measurably hurt real-world generalization in that same benchmark. Fewer
+full-depth trees was the only lever that shrank the model without giving up
+accuracy.
 """
 import pandas as pd
 import joblib
@@ -57,13 +68,13 @@ def augment_with_bare_domain_variants(urls, targets):
     return aug_urls, aug_targets
 
 
-# Load dataset (only the url + status columns are used; all model features are
+# Load dataset (only the URL + label columns are used; all model features are
 # recomputed from the raw URL, not taken from the dataset's own precomputed columns)
-df = pd.read_csv("data/dataset_phishing.csv")
-df["target"] = df["status"].map({"legitimate": 0, "phishing": 1})
+df = pd.read_csv("data/phishing_url_dataset.csv")
+df["target"] = 1 - df["label"]  # this dataset's label=1 is legitimate; we want 1=phishing
 
 urls_train, urls_test, y_train_raw, y_test_raw = train_test_split(
-    df["url"], df["target"], test_size=0.2, random_state=42, stratify=df["target"]
+    df["URL"], df["target"], test_size=0.2, random_state=42, stratify=df["target"]
 )
 
 aug_urls_train, aug_y_train = augment_with_bare_domain_variants(
@@ -78,7 +89,7 @@ X_test = pd.DataFrame([extract_features_v2(u) for u in urls_test])[X_train.colum
 y_test = y_test_raw.reset_index(drop=True)
 print(f"Feature matrix: {X_train.shape}")
 
-base_model = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
+base_model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
 model = CalibratedClassifierCV(base_model, method="isotonic", cv=5)
 model.fit(X_train, y_train)
 

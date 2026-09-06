@@ -1,7 +1,7 @@
 import joblib
 import numpy as np
 from pathlib import Path
-from ..utils.feature_extractor import extract_features, extract_features_v2
+from ..utils.feature_extractor import extract_features_v2, trusted_domain_match
 
 try:
     import shap
@@ -10,13 +10,9 @@ except ImportError:
 
 # Calibrated RandomForest scoped to domain-style URLs, trained on lexical
 # features recomputed straight from the URL string (see
-# train_model_calibrated.py) - no train/serve skew, better-calibrated
-# confidence than the old rf_2 model, and no longer flags ordinary
-# subdomain/path URLs (github.com/login, accounts.google.com/...) as phishing.
+# train_model_calibrated.py) - no train/serve skew, and doesn't flag ordinary
+# subdomain/path URLs (github.com/login) as phishing.
 _PRIMARY_MODEL_PATH = Path("models/phishing_model_rf_3.joblib")
-# Original URL-only RandomForest - kept as a fallback in case the primary model
-# is missing (e.g. not yet retrained/committed in this environment).
-_FALLBACK_MODEL_PATH = Path("models/phishing_model_rf_2.joblib")
 
 # Human-readable description of what each feature measures. Only the
 # direction-agnostic fact is hardcoded here - whether a given value actually
@@ -182,28 +178,24 @@ explainers = None  # list of (shap.TreeExplainer, phishing_class_index), one per
 
 def load_model():
     global model, feature_fn, explainers
-    if _PRIMARY_MODEL_PATH.exists():
-        model = joblib.load(_PRIMARY_MODEL_PATH)
-        feature_fn = extract_features_v2
-        print(f"Model loaded successfully: {_PRIMARY_MODEL_PATH}")
+    if not _PRIMARY_MODEL_PATH.exists():
+        print(f"No model found at {_PRIMARY_MODEL_PATH} - using dummy fallback")
+        return
 
-        if shap is not None:
-            try:
-                explainers = []
-                for calibrated_classifier in model.calibrated_classifiers_:
-                    estimator = calibrated_classifier.estimator
-                    phishing_idx = list(estimator.classes_).index(1)
-                    explainers.append((shap.TreeExplainer(estimator), phishing_idx))
-            except Exception as exc:
-                print(f"SHAP explainer setup failed, explanations disabled: {exc}")
-                explainers = None
-    elif _FALLBACK_MODEL_PATH.exists():
-        model = joblib.load(_FALLBACK_MODEL_PATH)
-        feature_fn = extract_features
-        explainers = None
-        print(f"Primary model not found - falling back to {_FALLBACK_MODEL_PATH}")
-    else:
-        print("No model found - using dummy fallback")
+    model = joblib.load(_PRIMARY_MODEL_PATH)
+    feature_fn = extract_features_v2
+    print(f"Model loaded successfully: {_PRIMARY_MODEL_PATH}")
+
+    if shap is not None:
+        try:
+            explainers = []
+            for calibrated_classifier in model.calibrated_classifiers_:
+                estimator = calibrated_classifier.estimator
+                phishing_idx = list(estimator.classes_).index(1)
+                explainers.append((shap.TreeExplainer(estimator), phishing_idx))
+        except Exception as exc:
+            print(f"SHAP explainer setup failed, explanations disabled: {exc}")
+            explainers = None
 
 
 def explain_prediction(feature_vector: list, feature_names: list, top_k: int = 5) -> list:
@@ -240,6 +232,18 @@ def explain_prediction(feature_vector: list, feature_names: list, top_k: int = 5
 
 
 def predict_url(url: str, explain: bool = False):
+    trusted = trusted_domain_match(url)
+    if trusted:
+        explanation = [{
+            "feature": "trusted_domain",
+            "label": "Recognized platform",
+            "detail": f'"{trusted}" is a well-known, high-reputation domain',
+            "value": 1.0,
+            "contribution": -1.0,
+            "direction": "legitimate",
+        }] if explain else []
+        return {"is_phishing": False, "confidence": 0.99, "features": {}, "explanation": explanation}
+
     if model is None:
         load_model()
 

@@ -11,7 +11,8 @@ const api = axios.create({
 })
 
 // Attach the admin JWT (if signed in) to every request.
-// Public endpoints ignore it; /api/logs requires it.
+// Public endpoints ignore it; /api/logs, /api/metrics, and their /api/qr/*
+// counterparts all require it.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('phishing_admin_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -26,6 +27,16 @@ export async function predictUrl(url, { explain = false } = {}) {
   return data // { url, is_phishing, confidence, message, explanation: [...] }
 }
 
+/** POST /api/predict/qr — decode a QR code image and classify the URL it contains. */
+export async function predictQr(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post('/api/predict/qr', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data // { filename, qr_readable, decoded_url, is_phishing, confidence, message, explanation: [...] }
+}
+
 /** GET /api/metrics — aggregate dashboard stats. */
 export async function getMetrics() {
   const { data } = await api.get('/api/metrics')
@@ -36,6 +47,18 @@ export async function getMetrics() {
 export async function getLogs(limit = 100) {
   const { data } = await api.get('/api/logs', { params: { limit } })
   return data // [{ id, url, is_phishing, confidence, message, timestamp }]
+}
+
+/** GET /api/qr/metrics — aggregate QR dashboard stats. */
+export async function getQrMetrics() {
+  const { data } = await api.get('/api/qr/metrics')
+  return data // { total_checks, unreadable_count, readable_rate, phishing_detected, detection_rate }
+}
+
+/** GET /api/qr/logs — recent QR detection history. */
+export async function getQrLogs(limit = 100) {
+  const { data } = await api.get('/api/qr/logs', { params: { limit } })
+  return data // [{ id, filename, decoded_url, qr_readable, is_phishing, confidence, message, timestamp }]
 }
 
 export { baseURL }
