@@ -26,6 +26,16 @@ export async function predictUrl(url, { explain = false } = {}) {
   return data // { url, is_phishing, confidence, message, explanation: [...] }
 }
 
+/** POST /api/predict/qr — decode a QR code image and classify the URL it contains. */
+export async function predictQr(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post('/api/predict/qr', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data // { filename, qr_readable, decoded_url, is_phishing, confidence, message, explanation: [...] }
+}
+
 /** GET /api/metrics — aggregate dashboard stats. */
 export async function getMetrics() {
   const { data } = await api.get('/api/metrics')

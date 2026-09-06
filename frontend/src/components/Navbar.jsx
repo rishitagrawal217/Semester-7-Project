@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 
 const links = [
   { to: '/', label: 'URL Checker', end: true },
+  { to: '/qr-checker', label: 'QR Checker' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/logs', label: 'Logs' },
 ]

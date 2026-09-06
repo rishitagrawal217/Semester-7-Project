@@ -7,6 +7,7 @@ from .database.session import init_db
 from .routers.detection import router as detection_router
 from .routers.admin import router as admin_router
 from .routers.auth import router as auth_router
+from .routers.qr import router as qr_router
 
 load_dotenv()
 
@@ -40,3 +41,4 @@ def health():
 app.include_router(auth_router)
 app.include_router(detection_router)
 app.include_router(admin_router)
+app.include_router(qr_router)

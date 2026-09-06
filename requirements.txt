@@ -11,4 +11,6 @@ matplotlib
 pytz
 httpx
 shap
+opencv-python-headless
+python-multipart
 pyjwt
