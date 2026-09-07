@@ -1,21 +1,24 @@
 # Phishing Detector — Frontend
 
-A React (Vite) + Tailwind CSS single-page app that talks to the FastAPI backend in this repo. Three pages:
+A React (Vite) + Tailwind CSS single-page app that talks to the FastAPI backend in this repo. Four pages:
 
-| Page          | Route        | Backend call        | Access | What it does |
-|---------------|--------------|---------------------|--------|--------------|
-| URL Checker   | `/`          | `POST /api/predict` | Public | Type a URL → Safe/Phishing result with a confidence bar. |
-| Dashboard     | `/dashboard` | `GET /api/metrics`  | Public | Stat cards (total, phishing, detection rate) + Safe-vs-Phishing donut chart. |
-| Logs          | `/logs`      | `GET /api/logs`     | **Admin only** | Searchable, filterable table of every past check. Requires admin login. |
+| Page          | Route         | Backend call                              | Access | What it does |
+|---------------|---------------|--------------------------------------------|--------|--------------|
+| URL Checker   | `/`           | `POST /api/predict`                        | Public | Type a URL → Safe/Phishing result with a confidence bar and a SHAP-based "Why?" breakdown of the top contributing features. |
+| QR Checker    | `/qr-checker` | `POST /api/predict/qr`                     | Public | Upload/drag a QR code image → decodes it, shows the URL it points to, and runs the same result + "Why?" UI as the URL Checker. |
+| Dashboard     | `/dashboard`  | `GET /api/metrics` / `GET /api/qr/metrics` | **Admin only** | Stat cards + donut chart, with a URL Checks / QR Codes tab (QR adds a "Readable Rate" stat and an Unreadable slice). |
+| Logs          | `/logs`       | `GET /api/logs` / `GET /api/qr/logs`       | **Admin only** | Searchable, filterable table of every past check, same URL/QR tab split. |
+
+Both `Dashboard` and `Logs` read from entirely separate data on the backend for each tab (separate DB tables, separate endpoints) — the tab just switches which one is displayed, it isn't a client-side filter over shared rows.
 
 ## Admin authentication (username + password + JWT)
 
-The **Logs** page is restricted to an admin. Security is enforced in two places:
+The **Dashboard** and **Logs** pages (both tabs on each) are admin-only. Security is enforced in two places:
 
-1. **Backend** — `POST /api/login` checks the credentials against env vars and returns a signed **JWT**. `GET /api/logs` requires that token (`Authorization: Bearer …`); a direct `curl` without it is rejected with `401`. Hiding the page alone would not be secure.
-2. **Frontend** — the `/logs` page shows a login form until the admin signs in; the JWT is then stored and attached to log requests.
+1. **Backend** — `POST /api/login` checks the credentials against env vars and returns a signed **JWT**. `GET /api/logs`, `GET /api/metrics`, `GET /api/qr/logs`, and `GET /api/qr/metrics` all require that token (`Authorization: Bearer …`); a direct `curl` without it is rejected with `401`. Hiding the page alone would not be secure.
+2. **Frontend** — a shared `AuthGate` component (`src/components/AuthGate.jsx`) shows a login form on both pages until the admin signs in; the JWT is then stored and attached to every request via an axios interceptor.
 
-The URL Checker and Dashboard stay public. No external service, OAuth app, or client ID is required.
+The URL Checker and QR Checker stay fully public — anyone can check a URL or upload a QR code without logging in. Only the aggregate metrics/history views require admin auth. No external service, OAuth app, or client ID is required.
 
 ### Configure the credentials
 
@@ -97,15 +100,20 @@ frontend/
     ├── components/
     │   ├── Navbar.jsx           # nav + signed-in admin badge / sign-out
     │   ├── StatCard.jsx
-    │   └── LoginForm.jsx        # username/password form
+    │   ├── LoginForm.jsx        # username/password form
+    │   ├── AuthGate.jsx         # shared "sign in to view this" wrapper (Dashboard + Logs)
+    │   ├── SourceTabs.jsx       # shared URL Checks / QR Codes tab switcher
+    │   └── PredictionResult.jsx # shared result card + SHAP "Why?" section (UrlChecker + QRChecker)
     └── pages/
         ├── UrlChecker.jsx
-        ├── Dashboard.jsx
-        └── Logs.jsx        # admin-gated; shows login form until authorized
+        ├── QRChecker.jsx   # drag/drop or click to upload a QR image
+        ├── Dashboard.jsx   # admin-gated; URL Checks / QR Codes tab
+        └── Logs.jsx        # admin-gated; URL Checks / QR Codes tab
 ```
 
 ## Notes
 
-- All backend calls live in `src/api/client.js`. A request interceptor attaches the stored JWT as `Authorization: Bearer …` to every request; only `/api/logs` requires it.
-- If the token expires, the next `/api/logs` call returns `401`; the app clears the session and shows the login form again.
+- All backend calls live in `src/api/client.js`. A request interceptor attaches the stored JWT as `Authorization: Bearer …` to every request; `/api/logs`, `/api/metrics`, `/api/qr/logs`, and `/api/qr/metrics` all require it, `/api/predict` and `/api/predict/qr` ignore it.
+- If the token expires, the next admin-only call returns `401`; the app clears the session and shows the login form again — on Dashboard/Logs, that's every request, so an expired session kicks you straight back to `AuthGate`.
+- `predictUrl(url, { explain: true })` is what the URL Checker's "Check" button calls — it's what triggers the SHAP explanation server-side (~0.7s slower than a plain check). `QRChecker`'s upload always requests it too, since it's the same kind of user-initiated, non-hot-path check.
 - The Dashboard donut sets `isAnimationActive={false}` on purpose: Recharts' enter animation renders an empty chart under React 18 StrictMode's double-mount.
