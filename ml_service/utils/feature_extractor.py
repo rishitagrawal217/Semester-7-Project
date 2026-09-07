@@ -137,7 +137,11 @@ def extract_features_v2(url: str) -> dict:
     parsed = urlsplit(candidate)
     hostname = (parsed.hostname or "").lower()
     netloc = (parsed.netloc or "").lower()
-    domain_part = f"{parsed.scheme}://{netloc}" if netloc else raw
+    # Scheme forced to a constant here (not parsed.scheme) so http:// vs
+    # https:// can't shift length_url/ratio_digits_url by len("https")-len("http")
+    # - the model was keying on that alone, blocking plain-http legitimate
+    # sites like example.com and neverssl.com.
+    domain_part = f"https://{netloc}" if netloc else raw
     path = (parsed.path or "").lower()
     path_and_query = path + (("?" + parsed.query) if parsed.query else "")
     has_www = hostname.startswith("www.")
