@@ -84,7 +84,9 @@ export default function PredictionResult({ isPhishing, confidence, subtitle, exp
                   cursor={{ fill: '#f8fafc' }}
                   formatter={(value) => [Number(value).toFixed(3), 'SHAP contribution']}
                 />
-                <Bar dataKey="contribution" radius={4}>
+                {/* isAnimationActive={false}: React 18 StrictMode's double-mount
+                    breaks Recharts' enter animation, same as the Dashboard donut. */}
+                <Bar dataKey="contribution" radius={4} isAnimationActive={false}>
                   {chartData.map((entry) => (
                     <Cell
                       key={entry.feature}
