@@ -243,12 +243,12 @@ def handle_http(client: socket.socket, request_line: str, header_lines: list[str
     target_port = parsed.port or (int(host_header.split(":")[1]) if ":" in host_header else 80)
 
     if target_host not in BYPASS_HOSTS and is_phishing(url):
-        page = WARNING_PAGE.replace("__URL__", html.escape(url))
-        response = (
+        page = WARNING_PAGE.replace("__URL__", html.escape(url)).encode("utf-8")
+        head = (
             "HTTP/1.1 403 Forbidden\r\n"
-            f"Content-Type: text/html\r\nContent-Length: {len(page)}\r\nConnection: close\r\n\r\n{page}"
+            f"Content-Type: text/html; charset=utf-8\r\nContent-Length: {len(page)}\r\nConnection: close\r\n\r\n"
         )
-        client.sendall(response.encode())
+        client.sendall(head.encode() + page)
         client.close()
         return
 
