@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { predictUrl } from '../api/client.js'
 import PredictionResult from '../components/PredictionResult.jsx'
+import ScanLoader from '../components/ScanLoader.jsx'
+import Icon from '../components/Icons.jsx'
+import { StatsStrip, HowItWorks, RedFlags } from '../components/InfoSections.jsx'
+
+const EXAMPLES = [
+  'https://www.github.com',
+  'http://secure-paypal-login-verify.tk',
+  'http://192.168.0.1/login',
+]
 
 export default function UrlChecker() {
   const [url, setUrl] = useState('')
@@ -8,9 +17,8 @@ export default function UrlChecker() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    const trimmed = url.trim()
+  async function check(value) {
+    const trimmed = value.trim()
     if (!trimmed) return
     setLoading(true)
     setError('')
@@ -29,45 +37,89 @@ export default function UrlChecker() {
     }
   }
 
+  function handleSubmit(e) {
+    e.preventDefault()
+    check(url)
+  }
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Check a URL</h1>
-        <p className="mt-2 text-slate-500">
-          Enter any URL to check whether it looks like a phishing site.
+    <div>
+      <div className="mx-auto max-w-2xl text-center">
+        <span className="chip reveal">
+          <span className="h-1.5 w-1.5 rounded-full bg-neon-green animate-pulse-ring" />
+          Calibrated random forest · SHAP explainable
+        </span>
+        <h1 className="reveal mt-5 text-4xl font-extrabold tracking-tight text-white sm:text-5xl" style={{ animationDelay: '80ms' }}>
+          Is that link <span className="text-gradient">safe to open?</span>
+        </h1>
+        <p className="reveal mt-4 text-slate-400" style={{ animationDelay: '160ms' }}>
+          Paste any URL and get an instant verdict — with a plain-English breakdown of exactly why.
         </p>
+
+        <form
+          onSubmit={handleSubmit}
+          className="reveal mt-8 flex flex-col gap-3 sm:flex-row"
+          style={{ animationDelay: '240ms' }}
+        >
+          <div className="relative flex-1">
+            <Icon name="search" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/login"
+              className="input-field !py-3.5 !pl-12 font-mono text-sm"
+            />
+          </div>
+          <button type="submit" disabled={loading || !url.trim()} className="btn-primary !py-3.5">
+            <Icon name="bolt" className="h-4 w-4" strokeWidth={2.4} />
+            {loading ? 'Analyzing…' : 'Analyze'}
+          </button>
+        </form>
+
+        <div className="reveal mt-4 flex flex-wrap items-center justify-center gap-2" style={{ animationDelay: '320ms' }}>
+          <span className="text-xs text-slate-500">Try:</span>
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex}
+              type="button"
+              className="chip font-mono"
+              onClick={() => {
+                setUrl(ex)
+                check(ex)
+              }}
+            >
+              {ex.replace(/^https?:\/\//, '')}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com/login"
-          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-        />
-        <button
-          type="submit"
-          disabled={loading || !url.trim()}
-          className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Checking…' : 'Check'}
-        </button>
-      </form>
+      <div className="mx-auto max-w-2xl">
+        {error && (
+          <div className="mt-6 rounded-xl border border-neon-rose/30 bg-neon-rose/10 px-4 py-3 text-sm text-neon-rose animate-fade-in">
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
+        {loading && <ScanLoader />}
 
-      {result && (
-        <PredictionResult
-          isPhishing={result.is_phishing}
-          confidence={result.confidence}
-          subtitle={result.url}
-          explanation={result.explanation}
-        />
+        {result && !loading && (
+          <PredictionResult
+            isPhishing={result.is_phishing}
+            confidence={result.confidence}
+            subtitle={result.url}
+            explanation={result.explanation}
+          />
+        )}
+      </div>
+
+      {!result && !loading && (
+        <>
+          <StatsStrip />
+          <HowItWorks />
+          <RedFlags />
+        </>
       )}
     </div>
   )

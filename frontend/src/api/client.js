@@ -61,5 +61,11 @@ export async function getQrLogs(limit = 100) {
   return data // [{ id, filename, decoded_url, qr_readable, is_phishing, confidence, message, timestamp }]
 }
 
+/** GET /health — lightweight liveness probe for the navbar status pill. */
+export async function getHealth() {
+  const { data } = await api.get('/health', { timeout: 4000 })
+  return data // { status: 'healthy' }
+}
+
 export { baseURL }
 export default api

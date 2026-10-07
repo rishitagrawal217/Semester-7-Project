@@ -27,9 +27,9 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 text-left space-y-4">
+    <form onSubmit={handleSubmit} className="mt-6 space-y-4 text-left">
       <div>
-        <label className="block text-sm font-medium text-slate-600 mb-1">
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
           Username
         </label>
         <input
@@ -37,11 +37,11 @@ export default function LoginForm() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
-          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+          className="input-field"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-600 mb-1">
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
           Password
         </label>
         <input
@@ -49,12 +49,12 @@ export default function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+          className="input-field"
         />
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="rounded-lg border border-neon-rose/30 bg-neon-rose/10 px-3 py-2 text-sm text-neon-rose animate-fade-in">
           {error}
         </div>
       )}
@@ -62,7 +62,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading || !username.trim() || !password}
-        className="w-full rounded-xl bg-blue-600 px-6 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="btn-primary w-full"
       >
         {loading ? 'Signing in…' : 'Sign in'}
       </button>
