@@ -3,11 +3,25 @@ import { getLogs, getQrLogs } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import AuthGate from '../components/AuthGate.jsx'
 import SourceTabs from '../components/SourceTabs.jsx'
+import Icon from '../components/Icons.jsx'
 
 function formatTime(ts) {
   if (!ts) return '—'
   const d = new Date(ts)
   return isNaN(d.getTime()) ? ts : d.toLocaleString()
+}
+
+function Pill({ tone, children }) {
+  const tones = {
+    rose: 'bg-neon-rose/15 text-neon-rose ring-neon-rose/30',
+    green: 'bg-neon-green/15 text-neon-green ring-neon-green/30',
+    amber: 'bg-neon-amber/15 text-neon-amber ring-neon-amber/30',
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${tones[tone]}`}>
+      {children}
+    </span>
+  )
 }
 
 export default function Logs() {
@@ -61,34 +75,37 @@ export default function Logs() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="reveal mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Detection Logs</h1>
-          <p className="mt-1 text-slate-500">
+          <h1 className="text-3xl font-bold text-white">
+            Detection <span className="text-gradient">logs</span>
+          </h1>
+          <p className="mt-1 text-slate-400">
             History of every {source === 'url' ? 'URL' : 'QR code'} checked.
           </p>
         </div>
-        <button
-          onClick={load}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
-        >
-          ↻ Refresh
+        <button onClick={load} className="btn-ghost">
+          <Icon name="refresh" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </button>
       </div>
 
-      <div className="mb-4">
+      <div className="reveal mb-4" style={{ animationDelay: '60ms' }}>
         <SourceTabs value={source} onChange={setSource} />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={source === 'url' ? 'Search URL…' : 'Search decoded URL…'}
-          className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-        />
-        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+      <div className="reveal mb-4 flex flex-col gap-3 sm:flex-row" style={{ animationDelay: '120ms' }}>
+        <div className="relative flex-1">
+          <Icon name="search" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={source === 'url' ? 'Search URL…' : 'Search decoded URL…'}
+            className="input-field !py-2.5 !pl-10 text-sm"
+          />
+        </div>
+        <div className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           {[
             { key: 'all', label: 'All' },
             { key: 'phishing', label: 'Phishing' },
@@ -97,10 +114,10 @@ export default function Logs() {
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all ${
                 filter === key
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-gradient-to-r from-neon-cyan/20 to-neon-violet/20 text-white shadow-[inset_0_0_0_1px_rgba(34,211,238,0.35)]'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               {label}
@@ -110,65 +127,71 @@ export default function Logs() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mb-6 rounded-xl border border-neon-rose/30 bg-neon-rose/10 px-4 py-3 text-sm text-neon-rose">
           {error}
         </div>
       )}
 
-      <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+      <div className="glass reveal overflow-hidden" style={{ animationDelay: '180ms' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-left">
+            <thead className="border-b border-white/5 bg-white/[0.03] text-left text-xs uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">{source === 'url' ? 'URL' : 'Decoded URL'}</th>
                 <th className="px-4 py-3 font-medium">Confidence</th>
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Time</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Time</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                     Loading…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                     No logs to show.
                   </td>
                 </tr>
               ) : (
                 filtered.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
+                  <tr key={log.id} className="transition-colors hover:bg-white/[0.04]">
                     <td className="px-4 py-3">
                       {source === 'qr' && !log.qr_readable ? (
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
-                          Unreadable
-                        </span>
+                        <Pill tone="amber">Unreadable</Pill>
+                      ) : log.is_phishing ? (
+                        <Pill tone="rose">Phishing</Pill>
                       ) : (
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            log.is_phishing
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-emerald-100 text-emerald-700'
-                          }`}
-                        >
-                          {log.is_phishing ? 'Phishing' : 'Safe'}
-                        </span>
+                        <Pill tone="green">Safe</Pill>
                       )}
                     </td>
                     <td
-                      className="px-4 py-3 max-w-md truncate text-slate-700"
+                      className="max-w-md truncate px-4 py-3 font-mono text-[13px] text-slate-300"
                       title={source === 'url' ? log.url : log.decoded_url ?? log.filename}
                     >
                       {source === 'url' ? log.url : log.decoded_url ?? `(${log.filename})`}
                     </td>
-                    <td className="px-4 py-3 tabular-nums text-slate-600">
-                      {log.confidence != null ? `${Math.round(log.confidence * 100)}%` : '—'}
+                    <td className="px-4 py-3">
+                      {log.confidence != null ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className={`h-full rounded-full ${log.is_phishing ? 'bg-neon-rose' : 'bg-neon-green'}`}
+                              style={{ width: `${Math.round(log.confidence * 100)}%` }}
+                            />
+                          </div>
+                          <span className="tabular-nums text-slate-400">
+                            {Math.round(log.confidence * 100)}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-500">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                       {formatTime(log.timestamp)}
                     </td>
                   </tr>
@@ -180,7 +203,7 @@ export default function Logs() {
       </div>
 
       {!loading && (
-        <p className="mt-3 text-xs text-slate-400">
+        <p className="mt-3 text-xs text-slate-500">
           Showing {filtered.length} of {logs.length} records.
         </p>
       )}
