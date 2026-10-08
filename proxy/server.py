@@ -18,18 +18,22 @@ Then point your browser's HTTP *and* HTTPS proxy settings at
 127.0.0.1:8081 (see README for exact steps per OS).
 """
 import html
+import os
 import socket
 import threading
 from urllib.parse import urlsplit
 
 import httpx
 
-API_URL = "http://localhost:8000/api/predict"
-LISTEN_HOST = "127.0.0.1"
-LISTEN_PORT = 8081
+# Configurable via environment (the Docker service sets these); the defaults suit
+# running `python proxy/server.py` directly on the host. 127.0.0.1 rather than
+# "localhost" because on Windows "localhost" tries IPv6 first and stalls ~2s.
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/api/predict")
+LISTEN_HOST = os.getenv("LISTEN_HOST", "127.0.0.1")
+LISTEN_PORT = int(os.getenv("LISTEN_PORT", "8081"))
 BUFFER_SIZE = 8192
 SOCKET_TIMEOUT = 15
-BYPASS_HOSTS = ("localhost", "127.0.0.1")
+BYPASS_HOSTS = tuple(h.strip() for h in os.getenv("BYPASS_HOSTS", "localhost,127.0.0.1").split(",") if h.strip())
 # Connection-management headers that describe the client<->proxy hop only; they
 # must not be forwarded as-is (see handle_http).
 HOP_BY_HOP_HEADERS = {"connection", "proxy-connection", "keep-alive"}
