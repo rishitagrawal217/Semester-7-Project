@@ -55,7 +55,7 @@ export default function Navbar() {
             <Icon name="shield" className="h-5 w-5" strokeWidth={2.2} />
           </span>
           <div className="hidden leading-tight sm:block">
-            <p className="font-semibold tracking-tight text-white">PhishGuard</p>
+            <p className="font-semibold tracking-tight text-white">Phishing Detector</p>
             <p className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 sm:block">
               Real-time detection
             </p>

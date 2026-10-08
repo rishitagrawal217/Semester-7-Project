@@ -49,7 +49,7 @@ export default function App() {
         </Routes>
       </main>
       <footer className="border-t border-white/5 py-5 text-center text-xs text-slate-500">
-        PhishGuard · FastAPI · scikit-learn · SHAP · React
+        Phishing Detector · FastAPI · scikit-learn · SHAP · React
       </footer>
     </div>
   )
