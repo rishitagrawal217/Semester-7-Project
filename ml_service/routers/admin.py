@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends
 from ..database.session import SessionLocal
 from ..services.auth import require_admin
 from models.sqlalchemy_models import DetectionLog, QRDetectionLog
-from datetime import datetime
-import pytz
+from datetime import timezone
 
 router = APIRouter(prefix="/api", tags=["admin"])
 
@@ -11,7 +10,9 @@ router = APIRouter(prefix="/api", tags=["admin"])
 def _localize(rows):
     for row in rows:
         if row.timestamp:
-            row.timestamp = row.timestamp.replace(tzinfo=pytz.utc).astimezone(pytz.timezone('Asia/Kolkata'))
+            # SQLite drops tzinfo; timestamps are stored as UTC, so tag them so the
+            # JSON carries an explicit +00:00 offset instead of reading as local time.
+            row.timestamp = row.timestamp.replace(tzinfo=timezone.utc)
     return rows
 
 

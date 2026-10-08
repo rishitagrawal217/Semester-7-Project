@@ -28,16 +28,16 @@ const TOOLTIP_STYLE = {
   color: '#e2e8f0',
 }
 
-/** Buckets logs into the last 7 calendar days (oldest → newest). */
+/** Buckets logs into the last 7 UTC calendar days (oldest → newest). */
 function buildTimeline(logs) {
   const days = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() - i)
+    d.setUTCHours(0, 0, 0, 0)
+    d.setUTCDate(d.getUTCDate() - i)
     days.push({
-      key: d.toDateString(),
-      day: d.toLocaleDateString(undefined, { weekday: 'short' }),
+      key: d.toISOString().slice(0, 10),
+      day: d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' }),
       Safe: 0,
       Phishing: 0,
     })
@@ -45,7 +45,7 @@ function buildTimeline(logs) {
   const index = Object.fromEntries(days.map((d, i) => [d.key, i]))
   for (const log of logs) {
     if (log.is_phishing == null) continue // unreadable QR rows have no verdict
-    const i = index[new Date(log.timestamp).toDateString()]
+    const i = index[new Date(log.timestamp).toISOString().slice(0, 10)]
     if (i === undefined) continue
     if (log.is_phishing) days[i].Phishing += 1
     else days[i].Safe += 1

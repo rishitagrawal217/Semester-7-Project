@@ -8,7 +8,9 @@ import Icon from '../components/Icons.jsx'
 function formatTime(ts) {
   if (!ts) return '—'
   const d = new Date(ts)
-  return isNaN(d.getTime()) ? ts : d.toLocaleString()
+  if (isNaN(d.getTime())) return ts
+  // Backend timestamps are UTC; show them as UTC rather than the viewer's local zone.
+  return d.toLocaleString('en-GB', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'medium' }) + ' UTC'
 }
 
 function Pill({ tone, children }) {

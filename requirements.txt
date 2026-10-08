@@ -8,7 +8,6 @@ python-dotenv
 pandas
 numpy
 matplotlib
-pytz
 httpx
 shap
 opencv-python-headless

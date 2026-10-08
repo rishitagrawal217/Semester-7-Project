@@ -1,7 +1,6 @@
 from ..database.session import SessionLocal
 from models.sqlalchemy_models import QRDetectionLog
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone
 
 
 def log_qr_detection(filename, decoded_url, qr_readable, is_phishing, confidence, message):
@@ -14,7 +13,7 @@ def log_qr_detection(filename, decoded_url, qr_readable, is_phishing, confidence
             is_phishing=is_phishing,
             confidence=confidence,
             message=message,
-            timestamp=datetime.now(pytz.timezone('Asia/Kolkata'))
+            timestamp=datetime.now(timezone.utc)
         )
         db.add(log_entry)
         db.commit()
