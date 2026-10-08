@@ -30,6 +30,9 @@ LISTEN_PORT = 8081
 BUFFER_SIZE = 8192
 SOCKET_TIMEOUT = 15
 BYPASS_HOSTS = ("localhost", "127.0.0.1")
+# Connection-management headers that describe the client<->proxy hop only; they
+# must not be forwarded as-is (see handle_http).
+HOP_BY_HOP_HEADERS = {"connection", "proxy-connection", "keep-alive"}
 
 WARNING_PAGE = """<!doctype html>
 <html>
@@ -228,9 +231,10 @@ def handle_connect(client: socket.socket, target_host: str, target_port: int) ->
 
 def handle_http(client: socket.socket, request_line: str, header_lines: list[str], body: bytes) -> None:
     method, url, http_version = request_line.split(maxsplit=2)
-    headers = dict(h.split(": ", 1) for h in header_lines if ": " in h)
+    # Header names are case-insensitive on the wire ("host:" == "Host:").
+    headers = {name.strip().lower(): value.strip() for name, _, value in (h.partition(":") for h in header_lines) if value}
 
-    content_length = int(headers.get("Content-Length", 0))
+    content_length = int(headers.get("content-length", 0))
     while len(body) < content_length:
         chunk = client.recv(BUFFER_SIZE)
         if not chunk:
@@ -238,7 +242,7 @@ def handle_http(client: socket.socket, request_line: str, header_lines: list[str
         body += chunk
 
     parsed = urlsplit(url)
-    host_header = headers.get("Host", "")
+    host_header = headers.get("host", "")
     target_host = parsed.hostname or host_header.split(":")[0]
     target_port = parsed.port or (int(host_header.split(":")[1]) if ":" in host_header else 80)
 
@@ -262,7 +266,15 @@ def handle_http(client: socket.socket, request_line: str, header_lines: list[str
     origin_path = parsed.path or "/"
     if parsed.query:
         origin_path += "?" + parsed.query
-    raw_request = f"{method} {origin_path} {http_version}\r\n" + "\r\n".join(header_lines) + "\r\n\r\n"
+    # One request per connection: we only ever check the first request on a
+    # client connection, so anything sent after it on the same socket would be
+    # relayed unchecked (and to the wrong host). Telling the upstream
+    # "Connection: close" makes it hang up after its response, which tears down
+    # the relay and forces the browser to open a fresh connection - and so a
+    # fresh phishing check - for its next request.
+    forwarded = [h for h in header_lines if h.partition(":")[0].strip().lower() not in HOP_BY_HOP_HEADERS]
+    forwarded.append("Connection: close")
+    raw_request = f"{method} {origin_path} {http_version}\r\n" + "\r\n".join(forwarded) + "\r\n\r\n"
     upstream.sendall(raw_request.encode() + body)
 
     threading.Thread(target=relay, args=(upstream, client), daemon=True).start()
