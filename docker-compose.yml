@@ -13,6 +13,13 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-insecure-secret-change-me}
       - JWT_EXPIRE_HOURS=${JWT_EXPIRE_HOURS:-12}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
+    # Lets the proxy wait until the API is really answering. python-slim has no curl.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   frontend:
     build:
@@ -25,4 +32,18 @@ services:
     depends_on:
       - ml-service
 
-  # Proxy service to be added later
+  # Forward proxy that blocks phishing URLs. Point your browser's HTTP *and* HTTPS
+  # proxy at 127.0.0.1:8081.
+  proxy:
+    build: ./proxy
+    ports:
+      # Bound to loopback on purpose: "8081:8081" would expose an open forward
+      # proxy to everyone on your network.
+      - "127.0.0.1:8081:8081"
+    environment:
+      - API_URL=http://ml-service:8000/api/predict
+      - LISTEN_HOST=0.0.0.0   # inside the container; the host-side port above stays loopback-only
+      - LISTEN_PORT=8081
+    depends_on:
+      ml-service:
+        condition: service_healthy
