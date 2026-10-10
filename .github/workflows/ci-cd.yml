@@ -22,6 +22,7 @@ jobs:
 
   docker-build-push:
     needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,4 +37,4 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: advay1235/phishing-detector:latest
+          tags: rishitagrawal217/phishing-detector:latest
