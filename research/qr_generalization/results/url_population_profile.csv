@@ -1,0 +1,5 @@
+label,scheme_https,has_path,has_query,www,n_labels,url_len,host_len,is_ip,digits_in_host,hyphens_in_host,dataset
+benign,1.0,0.0,0.0,1.0,3.163,27.16,19.16,0.0,0.047,0.079,PhiUSIIL
+phishing,0.49,0.265,0.059,0.416,3.187,45.987,24.668,0.005,2.005,0.549,PhiUSIIL
+benign,1.0,0.775,0.042,1.0,3.628,43.979,21.761,0.0,0.174,0.068,QR
+phishing,0.056,0.899,0.073,0.128,2.592,41.287,17.557,0.042,0.814,0.142,QR
