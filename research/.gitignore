@@ -1,3 +1,4 @@
 qr_generalization/results/cache/
 __pycache__/
 qr_generalization/results/qr_urls.csv
+paper/*.zip
